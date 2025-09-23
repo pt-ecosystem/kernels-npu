@@ -1,4 +1,4 @@
-# trton-ascend安装指南
+# triton-ascend安装(踩坑)指南
 
 ## 使用平台
 https://www.autodl.com/
