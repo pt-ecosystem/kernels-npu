@@ -11,7 +11,7 @@ https://gitee.com/ascend/triton-ascend/blob/master/docs/sources/getting-started/
 2. 可通过`bash Ascend-cann-toolkit --install --install-path=/home/install-cann`自定义安装CANN的路径，但要确保有执行权限。这里推荐/home目录。
 3. 在`Ascend-cann-kernels --install --install-path=/home/install-cann`时同理。
 4. source /home/install-cann/xx/set_env.sh，切记。
-5. apt安装clang。pip安装pythonu依赖、torch、torch_npu，无事发生。
+5. apt安装clang。pip安装python依赖、torch、torch_npu，无事发生。
 6. llvm严格使用commit ID: `b5cc222d7429fe6f18c787f633d5262fac2e676f`，测试main分支报错。
 7. 等待漫长的clang构建安装LLVM过程。GCC编译没试过是否能成功。
 8. 克隆triton-ascend时注意同时克隆的ascendnpu-ir和triton的commit ID，测试各自的main分支报错。

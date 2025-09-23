@@ -1,0 +1,6 @@
+[submodule "kernels-ext-npu/RMSNorm"]
+	path = kernels-ext-npu/RMSNorm
+	url = https://huggingface.co/kernels-ext-npu/RMSNorm
+[submodule "kernels-ext-npu/SwiGlu"]
+	path = kernels-ext-npu/SwiGlu
+	url = https://huggingface.co/kernels-ext-npu/SwiGlu
