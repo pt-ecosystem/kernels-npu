@@ -12,24 +12,25 @@
 ├── README.md
 ├── install_triton_ascend.md
 └── kernels-ext-npu
+    ├── MLP
+    │   └── xxx
     ├── RMSNorm
     │   ├── README.md
     │   └── build
     │       └── torch-universal
     │           └── RMSNorm
-    │               ├── __init__.py
-    │               └── layers.py
-    └── SwiGlu
-        ├── README.md
-        └── build
-            ├── torch26-cxx11-cann82-aarch64-linux
-            │   └── SwiGlu
-            │       ├── __init__.py
-            │       └── layers.py
-            └── torch27-cxx11-cann82-aarch64-linux
-                └── SwiGlu
-                    ├── __init__.py
-                    └── layers.py
+    │               └── xxx
+    ├── SwiGlu
+    │   ├── README.md
+    │   └── build
+    │       ├── torch26-cxx11-cann82-aarch64-linux
+    │       │   └── SwiGlu
+    │       │       └── xxx
+    │       └── torch27-cxx11-cann82-aarch64-linux
+    │           └── SwiGlu
+    │               └── xxx
+    └── flash-attention-2
+        └── xxx
 ```
 ## 如何修改/贡献kernels到kernels-ext-npu
 
