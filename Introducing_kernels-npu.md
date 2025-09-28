@@ -1,8 +1,18 @@
 # Introducing kernels-npu: A component for accelerating Transformers on NPU
 
+## 目录
+
+- 写在前面：kernels-npu是什么
+- 快速了解kernels使用方式
+    - 通过use_kernel_forward_from_hub装饰器，以RMSNorm加速为例
+    - 通过get_kernel方式，以flash-attn使用为例
+- FAQ
+    - 为什么只替换forward部分
+    - 为什么需要kernelize函数
+
 ## 写在前面：kernels-npu是什么
 
-[Kernels-npu](https://github.com/huggingface/transformers) 允许 [transformers](https://github.com/huggingface/transformers) 库（理论上所有 Python 模型库都可以）直接从 [HuggingFace-Hub](https://huggingface.co/) 动态加载 npu 计算内核。HuggingFace-Hub 加载内核与传统的直接使用 Python 计算内核的区别在于其具备以下特性：
+[Kernels-npu](https://github.com/huggingface/kernels) 允许 [transformers](https://github.com/huggingface/transformers) 库（理论上所有 Python 模型库都可以）直接从 [HuggingFace-Hub](https://huggingface.co/) 动态加载 npu 计算内核。HuggingFace-Hub 加载内核与传统的直接使用 Python 计算内核的区别在于其具备以下特性：
 
 - 易移植：从 PYTHONPATH 之外的路径加载内核。你不必再针对每个依赖 Transformers 的上层库中做MonkeyPatch。
 - 版本的扩展性：你可以为同一 Python 模块加载某一内核的多个版本。
@@ -10,11 +20,11 @@
 
 transformers 在 v4.54.0 的 release 中首次介绍了 kernels 的集成，并将后续计算加速内核的支持都放在了这里。如 GPT-OSS 的flash-attention-3 就是通过 kernels 支持的。 
 
-请注意：[kernels-npu](https://github.com/huggingface/kernels) 指的是原生支持 npu 能力后的 kernels 工具，并没有额外的 kernels-npu 的工具。这样命名只是为了方便行文。
+请注意：kernels-npu 指的是原生支持 npu 能力后的 kernels 工具，并没有额外的 kernels-npu 的工具。这样命名只是为了方便行文。
 
 ## 快速了解kernels使用方式
 
-### 通过`use_kernel_forward_from_hub()`装饰器，以RMSNorm加速为例
+### 通过use_kernel_forward_from_hub装饰器，以RMSNorm加速为例
 
 1.现在你有一个transformers中的计算模块，比如 `class Qwen3RMSNorm(nn.Module)` [-附源码](https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen3/modeling_qwen3.py#L50-L67)。 如果我想加速这部分，只需要满足两个条件。
 
@@ -151,7 +161,7 @@ class Qwen3RMSNorm(nn.Module):
 - 将 `logging.basicConfig()` 设置为 `level=logging.DEBUG` 即可通过打屏日志看到RMSNorm替换内核是否生效。
 
 
-### 通过`get_kernel`方式，以FA使用为例
+### 通过get_kernel方式，以flash-attn使用为例
 
 如果不能通过直接替换 forward 的方式使用，kernels 对外暴露了 `get_kernel` 接口[-附源码](https://github.com/huggingface/kernels/blob/main/src/kernels/utils.py#L215)。它使你仍能利用上述 step1-step4 中的操作。区别只在 step5-step8中，你需要手动指定替换。
 
