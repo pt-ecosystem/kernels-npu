@@ -3,12 +3,14 @@
 ## 目录
 
 - 写在前面：kernels-npu是什么
-- 快速了解kernels使用方式
+- 几行代码直观感受kernels的使用
+- kernels运行原理
     - 通过use_kernel_forward_from_hub装饰器，以RMSNorm加速为例
     - 通过get_kernel方式，以flash-attn使用为例
 - FAQ
     - 为什么只替换forward部分
     - 为什么需要kernelize函数
+
 
 ## 写在前面：kernels-npu是什么
 
@@ -22,7 +24,87 @@ transformers 在 v4.54.0 的 release 中首次介绍了 kernels 的集成，并�
 
 请注意：kernels-npu 指的是原生支持 npu 能力后的 kernels 工具，并没有额外的 kernels-npu 的工具。这样命名只是为了方便行文。
 
-## 快速了解kernels使用方式
+
+## 几行代码直观感受kernels的使用
+```diff
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
++ import logging
++ from typing import Union
+
++ from kernels import (
++     Device,
++     LayerRepository,
++     Mode,
++     register_kernel_mapping,
++ )
+
+
++ # 将日志级别设置为DEBUG，会在日志中看到哪些kernels被使用
++ logging.basicConfig(level=logging.DEBUG)
+
+model_name = "Qwen/Qwen3-0.6B"
+
++ _KERNEL_MAPPING: dict[str, dict[Union[Device, str], LayerRepository]] = {
++     "RMSNorm": {
++         "npu": {
++             Mode.INFERENCE: LayerRepository(
++                 repo_id="kernels-ext-npu/RMSNorm",
++                 layer_name="RMSNorm",
++             )
++         }
++     }
++ }
+
++ register_kernel_mapping(_KERNEL_MAPPING)
+
+# load the tokenizer and the model
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype="auto",
+    use_kernels=True,
+    device_map="auto"
+)
+
++ model.set_attn_implementation("kernels-ext-npu/flash-attn2")
+
+# prepare the model input
+prompt = "Give me a short introduction to large language model."
+messages = [
+    {"role": "user", "content": prompt}
+]
+text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True,
+    enable_thinking=True # Switches between thinking and non-thinking modes. Default is True.
+)
+model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
+
+# conduct text completion
+generated_ids = model.generate(
+    **model_inputs,
+    max_new_tokens=32768
+)
+output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
+
+# parsing thinking content
+try:
+    # rindex finding 151668 (</think>)
+    index = len(output_ids) - output_ids[::-1].index(151668)
+except ValueError:
+    index = 0
+
+thinking_content = tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
+content = tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
+
+print("thinking content:", thinking_content)
+print("content:", content)
+```
+
+
+## kernels运行原理
 
 ### 通过use_kernel_forward_from_hub装饰器，以RMSNorm加速为例
 
