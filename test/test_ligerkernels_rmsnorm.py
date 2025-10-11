@@ -6,8 +6,8 @@ import time
 import matplotlib.pyplot as plt
 
 
-batch, seq_length = 128, 1024
-hidden_size = range(128, 5600, 128)
+batch, hidden_size = 128, 1024
+seq_length = range(128, 5600, 128)
 
 
 class Qwen3RMSNorm(nn.Module):
@@ -67,28 +67,28 @@ def run_compare():
     X_ori = []
     Y_1 = []
     Y_2 = []
-    scaleout = 1000
+    scaleout = 1
     
     for i in range(len(hidden_size)):
-        X = torch.randn(batch, seq_length, hidden_size[i]).cuda()
+        X = torch.randn(batch, seq_length, seq_length[i]).cuda()
         
-        native_rmsnorm = Qwen3RMSNorm(hidden_size[i])
+        native_rmsnorm = Qwen3RMSNorm(hidden_size)
         start_time_1 = time.time()
         native_output = native_rmsnorm(X)
         end_time_1 = time.time()
         Y_1.append((end_time_1 - start_time_1) * scaleout)
         # print(f"native_output of hidden_size={hidden_size[i]}--------", native_output)
-        print(f"native_time of hidden_size={hidden_size[i]}---", end_time_1 - start_time_1)
+        print(f"native_time of hidden_size={seq_length[i]}---", end_time_1 - start_time_1)
         
 
-        triton_rmsnorm = LigerRMSNorm(hidden_size[i])
+        triton_rmsnorm = LigerRMSNorm(hidden_size)
         start_time_2 = time.time()
         triton_output = triton_rmsnorm(X)
         end_time_2 = time.time()
         Y_2.append((end_time_2 - start_time_2) * scaleout)
-        X_ori.append(hidden_size[i])
+        X_ori.append(seq_length[i])
         # print(f"triton_output of hidden_size={hidden_size[i]}--------", triton_output)
-        print(f"triton_time of hidden_size={hidden_size[i]}---", end_time_2 - start_time_2)
+        print(f"triton_time of hidden_size={seq_length[i]}---", end_time_2 - start_time_2)
     
         assert torch.allclose(native_output, triton_output, 1e-5, 1e-8)
 
@@ -96,7 +96,7 @@ def run_compare():
 
 
 X_ori, Y_1, Y_2 = run_compare()
-plt.xticks(hidden_size)
-plt.plot(X_ori[5:], Y_1[5:], label='native', color="green")
-plt.plot(X_ori[5:], Y_2[5:], label='triton', color="red")
+plt.xticks(seq_length)
+plt.plot(X_ori[2:], Y_1[2:], label='native', color="green")
+plt.plot(X_ori[2:], Y_2[2:], label='triton', color="red")
 plt.savefig('result.jpg')
