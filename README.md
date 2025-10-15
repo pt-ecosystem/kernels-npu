@@ -63,11 +63,10 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype="auto",
-    use_kernels=True,
-    device_map="auto"
++   use_kernels=True,
+    device_map="auto",
++   attn_implementation = "kernels-ext-npu/flash-attn2",
 )
-
-+ model.set_attn_implementation("kernels-ext-npu/flash-attn2")
 
 # prepare the model input
 prompt = "Give me a short introduction to large language model."
