@@ -102,6 +102,10 @@ print("thinking content:", thinking_content)
 print("content:", content)
 ```
 
+transformers:main 现已支持通过 AutoModel.from_pretrained() 指定 attn_implementation 入参使用 kernels 组件。
+
+当前，AutoModel.from_pretrained(attn_implementation="flash_attention_2") 和 AutoModel.from_pretrained(attn_implementation="kernels-ext-npu/flash-attn2") 两者兼容支持。前者会走入内置的 npu_flash_attention.py 逻辑。后者则会启动 kernels 下载并加载 hub 中的 flash attention 逻辑。
+
 
 ## kernels运行原理
 
