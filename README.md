@@ -7,6 +7,7 @@
 - kernels运行原理
     - 通过use_kernel_forward_from_hub装饰器，以RMSNorm加速为例
     - 通过get_kernel方式，以flash-attn使用为例
+- 当前支持的kernel列表
 - FAQ
     - 为什么只替换forward部分
     - 为什么需要kernelize函数
@@ -288,6 +289,15 @@ def load_and_register_kernel():
         raise ValueError(f"An error occurred while trying to load from '{repo_id}': {e}.")
     ···
 ```
+
+
+## 当前支持的kernel列表
+
+- RMSNorm：https://huggingface.co/kernels-ext-npu/RMSNorm
+- MLP_with_SwiGlu：https://huggingface.co/kernels-ext-npu/mlp_opt_swiglu
+- flash-attention2：https://huggingface.co/kernels-ext-npu/flash-attn2
+- rotary_pos_emb：https://huggingface.co/kernels-ext-npu/rotary_pos_emb
+- kernels测试用例，不实际使用：https://huggingface.co/kernels-ext-npu/SwiGlu
 
 
 ## FAQ 
