@@ -20,15 +20,17 @@ from .utils import compare_version
 from .utils import ensure_contiguous
 from .utils import torch_to_triton_dtype
 
-if compare_version("triton", operator.ge, "3.0.0"):
-    try:
-        # typical import path with dispatch available
-        from triton.language.extra.libdevice import rsqrt
-    except ModuleNotFoundError:
-        # for working with NGC containers
-        from triton.language.extra.cuda.libdevice import rsqrt
-else:
-    from triton.language.math import rsqrt
+# if compare_version("triton", operator.ge, "3.0.0"):
+#     try:
+#         # typical import path with dispatch available
+#         from triton.language.extra.libdevice import rsqrt
+#     except ModuleNotFoundError:
+#         # for working with NGC containers
+#         from triton.language.extra.cuda.libdevice import rsqrt
+# else:
+#     from triton.language.math import rsqrt
+
+from triton.language.math import rsqrt
 
 
 _CASTING_MODE_NONE: tl.constexpr = tl.constexpr(-1)

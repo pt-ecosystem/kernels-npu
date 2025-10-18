@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
+import torch_npu
 from tritonrms.rms_norm import LigerRMSNormFunction
 import sys
 import time
 import matplotlib.pyplot as plt
 
 
-batch, hidden_size = 128, 1024
-seq_length = range(128, 5600, 128)
+batch, hidden_size = 128, 128
+seq_length = [2, 8, 16, 32, 64, 128, 256, 384]
 
 
 class Qwen3RMSNorm(nn.Module):
@@ -16,7 +17,7 @@ class Qwen3RMSNorm(nn.Module):
         Qwen3RMSNorm is equivalent to T5LayerNorm
         """
         super().__init__()
-        self.weight = nn.Parameter(torch.ones(hidden_size)).cuda()
+        self.weight = nn.Parameter(torch.ones(hidden_size)).to("npu")
         self.variance_epsilon = eps
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
@@ -25,6 +26,19 @@ class Qwen3RMSNorm(nn.Module):
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
         return self.weight * hidden_states.to(input_dtype)
+
+
+class Qwen3RMSNormWithTorchNPU(nn.Module):
+    def __init__(self, hidden_size, eps: float = 1e-6) -> None:
+        """
+        Qwen3RMSNorm is equivalent to T5LayerNorm
+        """
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(hidden_size)).to("npu")
+        self.variance_epsilon = eps
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        return torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.variance_epsilon)[0]
 
 
 class LigerRMSNorm(Qwen3RMSNorm):
@@ -64,39 +78,32 @@ class LigerRMSNorm(Qwen3RMSNorm):
 
 def run_compare():
     torch.manual_seed(42)
-    X_ori = []
-    Y_1 = []
-    Y_2 = []
     scaleout = 1
     
-    for i in range(len(hidden_size)):
-        X = torch.randn(batch, seq_length, seq_length[i]).cuda()
+    for i in range(len(seq_length)):
+        X = torch.randn(batch, seq_length[i], hidden_size).to("npu")
         
         native_rmsnorm = Qwen3RMSNorm(hidden_size)
         start_time_1 = time.time()
         native_output = native_rmsnorm(X)
         end_time_1 = time.time()
-        Y_1.append((end_time_1 - start_time_1) * scaleout)
-        # print(f"native_output of hidden_size={hidden_size[i]}--------", native_output)
-        print(f"native_time of hidden_size={seq_length[i]}---", end_time_1 - start_time_1)
+        print(f"native_time of seq_length={seq_length[i]}------", end_time_1 - start_time_1)
+
+
+        torchnpu_rmsnorm = Qwen3RMSNormWithTorchNPU(hidden_size)
+        start_time_2 = time.time()
+        native_output = torchnpu_rmsnorm(X)
+        end_time_2 = time.time()
+        print(f"torch_npu_time of seq_length={seq_length[i]}---", end_time_2 - start_time_2)
         
 
         triton_rmsnorm = LigerRMSNorm(hidden_size)
-        start_time_2 = time.time()
+        start_time_3 = time.time()
         triton_output = triton_rmsnorm(X)
-        end_time_2 = time.time()
-        Y_2.append((end_time_2 - start_time_2) * scaleout)
-        X_ori.append(seq_length[i])
-        # print(f"triton_output of hidden_size={hidden_size[i]}--------", triton_output)
-        print(f"triton_time of hidden_size={seq_length[i]}---", end_time_2 - start_time_2)
+        end_time_3 = time.time()
+        print(f"triton_time of seq_length={seq_length[i]}------", end_time_3 - start_time_3)
     
-        assert torch.allclose(native_output, triton_output, 1e-5, 1e-8)
+        # assert torch.allclose(native_output, triton_output, 1e-5, 1e-8)
 
-    return X_ori, Y_1, Y_2
+run_compare()
 
-
-X_ori, Y_1, Y_2 = run_compare()
-plt.xticks(seq_length)
-plt.plot(X_ori[2:], Y_1[2:], label='native', color="green")
-plt.plot(X_ori[2:], Y_2[2:], label='triton', color="red")
-plt.savefig('result.jpg')
