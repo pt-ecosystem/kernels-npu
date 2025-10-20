@@ -1,11 +1,40 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+# Reference from: https://huggingface.co/kernels-community/flash-attn2
+
+
 import torch
 from kernels import get_kernel
 
 
 # Setup
 torch.manual_seed(42)
-flash_attn = get_kernel("kernels-ext-npu/flash-attn2")
-device = torch.device("npu")
+if torch.version.cuda is not None and torch.cuda.is_available():
+    device = "cuda"
+    flash_attn_from_kernels = get_kernel("kernels-community/flash-attn2")
+elif hasattr(torch._C, "_get_privateuse1_backend_name"):
+    device = torch._C._get_privateuse1_backend_name()
+    flash_attn_from_kernels = get_kernel("kernels-ext-npu/flash-attn2")
+else:
+    raise RuntimeError("No supported device found for testing flash attention.")
 
 # Create test tensors
 B, S, H, D = 2, 5, 4, 8  # batch, seq_len, heads, head_dim
@@ -21,7 +50,7 @@ def reference_attention(query, key, value, causal=False):
 # 1. Standard attention
 print("\n1. Standard attention:")
 out_ref = reference_attention(q, k, v)
-out_flash = flash_attn.flash_attn_func(
+out_flash = flash_attn_from_kernels.flash_attn_func(
     q=q, 
     k=k, 
     v=v, 
@@ -35,7 +64,7 @@ print(f"Outputs close: {torch.allclose(out_flash, out_ref, atol=1e-2, rtol=1e-3)
 print("\n2. Causal attention:")
 
 out_ref_causal = reference_attention(q, k, v, causal=True)
-out_causal = flash_attn.flash_attn_func(
+out_causal = flash_attn_from_kernels.flash_attn_func(
     q=q, 
     k=k, 
     v=v, 
@@ -84,7 +113,7 @@ cu_k = torch.tensor([0, 4, 9, 12], device=device, dtype=torch.int32)
 
 out_var_ref = var_reference_attention(q_var, k_var, v_var, cu_q, cu_k, max_seqlen_q=4, max_seqlen_k=5, causal=False)
 # Custom function to handle variable
-out_var = flash_attn.flash_attn_varlen_func(
+out_var = flash_attn_from_kernels.flash_attn_varlen_func(
     q=q_var,
     k=k_var,
     v=v_var,
