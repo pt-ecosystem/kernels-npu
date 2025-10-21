@@ -36,6 +36,8 @@ import kernels
 import triton
 import torch.nn.functional as F
 import triton.language as tl
+from loguru import logger
+import time
 
 
 # Configure torch settings for compiled functions
@@ -45,26 +47,32 @@ except AttributeError:
     # Handle cases where _functorch is not available
     pass
 
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
+
+# Setup
+torch.manual_seed(42)
+if torch.version.cuda is not None and torch.cuda.is_available():
+    DEVICE = "cuda"
+    triton_rmsnorm = kernels.get_kernel("kernels-ext-npu/triton_rmsnorm").RMSNorm
+elif hasattr(torch._C, "_get_privateuse1_backend_name"):
+    DEVICE = torch._C._get_privateuse1_backend_name()
+    triton_rmsnorm = kernels.get_kernel("kernels-ext-npu/triton_rmsnorm").RMSNorm
+    torchnpu_rmsnorm = kernels.get_kernel("kernels-ext-npu/rmsnorm")
+else:
+    raise RuntimeError("No supported device found for testing rmsnorm.")
 
 
-rms_norm_from_kernels = kernels.get_kernel("kernels-ext-npu/Triton_RMSNorm")
-rms_norm = rms_norm_from_kernels.RMSNorm.apply
-
-
-def pytorch_rms_norm(x, weight, eps=1e-5):
-    """PyTorch reference implementation of RMS Norm."""
+# PyTorch reference implementation of RMSNorm.
+def pytorch_rmsnorm(x, weight, eps=1e-5):
     return F.rms_norm(x, (x.size(-1),), weight=weight, eps=eps)
 
 
 # Compiled version for performance comparison
-pytorch_rms_norm_compiled = torch.compile(pytorch_rms_norm)
+pytorch_rmsnorm_compiled = torch.compile(pytorch_rmsnorm)
 
 
-def test_rms_norm_correctness(
+def test_rmsnorm(
     batch_size=1151, feature_dim=8192, dtype=torch.float16, eps=1e-5, device=None
 ):
-    """Test correctness of Triton RMS Norm vs PyTorch implementation."""
     if device is None:
         device = DEVICE
 
@@ -73,23 +81,42 @@ def test_rms_norm_correctness(
     x = torch.randn(batch_size, feature_dim, dtype=dtype, device=device)
 
     # Forward pass comparison
-    y_triton: torch.Tensor = rms_norm(x, (feature_dim,), weight, eps)  # type: ignore
-    y_pytorch = pytorch_rms_norm(x, weight, eps)
-    y_compiled = pytorch_rms_norm_compiled(x, weight, eps)
+    logger.info("Testing RMSNorm performance...")
+    start_time = time.time()
+    y_triton = triton_rmsnorm(x, (feature_dim,), weight, eps)  # type: ignore
+    logger.info(f"triton_time: {time.time() - start_time}")
 
+    start_time = time.time()
+    y_pytorch = pytorch_rmsnorm(x, weight, eps)
+    logger.info(f"native_torch_time: {time.time() - start_time}")
+
+    start_time = time.time()
+    y_compiled = pytorch_rmsnorm_compiled(x, weight, eps)
+    logger.info(f"compiled_torch_time: {time.time() - start_time}")
+
+    if DEVICE == "npu":
+        start_time = time.time()
+        y_torchnpu = torchnpu_rmsnorm(x, weight, eps)
+        logger.info(f"torch_npu__time: {time.time() - start_time}")
+
+    logger.success("All performance tests passed!")
 
     # Assertions
+    logger.info("Testing RMSNorm correctness...")
     assert torch.allclose(
         y_triton, y_pytorch, atol=1e-2, rtol=0
-    ), "Forward pass mismatch: Triton vs PyTorch"
+    ), "Forward pass mismatch: Triton vs Native PyTorch"
     assert torch.allclose(
         y_triton, y_compiled, atol=1e-2, rtol=0
-    ), "Forward pass mismatch: Triton vs Compiled"
+    ), "Forward pass mismatch: Triton vs Compiled PyTorch"
+
+    if DEVICE == "npu":
+        assert torch.allclose(
+            y_triton, y_torchnpu, atol=1e-2, rtol=0
+        ), "Forward pass mismatch: Triton vs torch_npu"
 
     logger.success("All correctness tests passed!")
 
 
 if __name__ == "__main__":
-    # Run correctness test
-    logger.info("Testing RMS Norm correctness...")
-    test_rms_norm_correctness()
+    test_rmsnorm()
