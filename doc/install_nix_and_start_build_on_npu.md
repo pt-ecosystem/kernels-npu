@@ -22,7 +22,7 @@
 `git clone https://github.com/huggingface/kernel-builder.git`
 
 ### 使能Hugging Face binary cache
-`nix run nixpkgs#cachix --extra-experimental-features nix-command --extra-experimental-features flakes --use huggingface`
+`nix run nixpkgs#cachix --extra-experimental-features nix-command --extra-experimental-features flakes -- use huggingface`
 
 ### build
 `nix build . --extra-experimental-features flakes --extra-experimental-features nix-command --override-input kernel-builder github:huggingface/kernel-builder --max-jobs 8 -j 8 -L`
