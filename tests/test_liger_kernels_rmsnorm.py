@@ -37,7 +37,7 @@ from kernels import (
 _kernels_available = True
 
 # Setting the level to DEBUG will show which kernels are being used.
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "npu"
 
@@ -68,6 +68,10 @@ class Qwen3RMSNorm(nn.Module):
         return self.weight * hidden_states.to(input_dtype)
 
 
+# # Compiled version for performance comparison
+compiled_torch_rmsnorm = torch.compile(Qwen3RMSNorm)
+
+
 # triton RMSNorm kernel
 @use_kernel_forward_from_hub("RMSNorm")
 class TritonRMSNorm(nn.Module):
@@ -80,64 +84,39 @@ class TritonRMSNorm(nn.Module):
         return NotImplementedError("This method will be replaced by the kernel from hub.")
 
 
-def test_rmsnorm(hidden_size=1024, eps=1e-5):
-    x = torch.randn(128, hidden_size, dtype=torch.float16, device=DEVICE)
-    weight = torch.rand(hidden_size, dtype=torch.float16, device=DEVICE)
+def test_rmsnorm(s1, s2, s3, hidden_size=1024, eps=1e-5):
+    x = torch.randn(s1, s2, s3, hidden_size, dtype=torch.float32, device=DEVICE)
+    weight = torch.rand(hidden_size, dtype=torch.float32, device=DEVICE)
 
     # PyTorch reference implementation
     torch_rmsnorm = Qwen3RMSNorm(hidden_size, eps).to(DEVICE)
+    start_time = time.time()
     torch_res = torch_rmsnorm(x)
-    print("torch_rmsnorm output:", torch_res)
+    print(f"torch_rmsnorm time: {time.time() - start_time}")
 
+    # Compiled version
+    compiled_rmsnorm = compiled_torch_rmsnorm(hidden_size, eps).to(DEVICE)
+    start_time = time.time()
+    compiled_res = compiled_rmsnorm(x)
+    print(f"compiled_rmsnorm time: {time.time() - start_time}")
+    
+    # Triton RMSNorm kernel
     triton_rmsnorm = TritonRMSNorm(hidden_size, eps).to(DEVICE)
     kernelize(triton_rmsnorm, device=DEVICE, mode=Mode.INFERENCE)
+    start_time = time.time()
     triton_res = triton_rmsnorm(x)
-    print("triton_rmsnorm output:", triton_res)
+    print(f"triton_rmsnorm time: {time.time() - start_time}")
+
+    assert torch.allclose(compiled_res, torch_res, atol=1e-2, rtol=0.0)
+    assert torch.allclose(triton_res, torch_res, atol=1e-2, rtol=0.0)
+    print(f"-----------------------shape [{s1}, {s2}, {s3}, {hidden_size}] RMSNorm test passed!-----------------------")
 
 
-# # Compiled version for performance comparison
-# pytorch_rmsnorm_compiled = torch.compile(pytorch_rmsnorm)
-
-
-# def test_rmsnorm(
-#     batch_size, 
-#     feature_dim, 
-#     dtype=torch.float16, 
-#     eps=1e-5, 
-#     device=None
-# ):
-
-#     # Create test data
-#     torch.manual_seed(42)
-#     weight = torch.rand(feature_dim, dtype=dtype, device=device,)
-#     x = torch.randn(batch_size, feature_dim, dtype=dtype, device=device)
-
-#     # Forward pass comparison
-#     logging.info("Testing RMSNorm performance...")
-#     start_time = time.time()
-#     y_triton = triton_rmsnorm(x, weight, eps)  # type: ignore
-#     logging.info(f"triton_time: {time.time() - start_time}")
-
-#     start_time = time.time()
-#     y_pytorch = pytorch_rmsnorm(x, weight, eps)
-#     logging.info(f"native_torch_time: {time.time() - start_time}")
-
-#     start_time = time.time()
-#     y_compiled = pytorch_rmsnorm_compiled(x, weight, eps)
-#     logging.info(f"compiled_torch_time: {time.time() - start_time}")
-
-#     logging.success("All performance tests passed!")
-
-#     # Assertions
-#     logging.info("Testing RMSNorm correctness...")
-#     # Forward pass mismatch: Triton vs Native PyTorch
-#     assert torch.allclose(y_triton, y_pytorch, atol=1e-2, rtol=0) 
-
-#     # Forward pass mismatch: Triton vs Compiled PyTorch
-#     assert torch.allclose(y_triton, y_compiled, atol=1e-2, rtol=0)
-
-#     logging.success("All correctness tests passed!")
-
-
-# if __name__ == "__main__":
-#     test_rmsnorm(28, 1024)
+if __name__ == "__main__":
+    test_rmsnorm(1, 1, 1, 1)
+    test_rmsnorm(8, 16, 32, 1024)
+    test_rmsnorm(4, 8, 16, 4096)
+    test_rmsnorm(2, 4, 8, 8192)
+    test_rmsnorm(1, 2, 4, 16384)
+    test_rmsnorm(1, 1, 2, 32768)
+    test_rmsnorm(1, 16, 32, 65536)
