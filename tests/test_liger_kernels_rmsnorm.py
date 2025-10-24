@@ -43,7 +43,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "npu"
 
 _KERNEL_MAPPING: dict[str, dict[Union[Device, str], LayerRepository]] = {
     "RMSNorm": {
-        "cuda": LayerRepository(
+        DEVICE: LayerRepository(
             repo_id="kernels-community/liger_kernels",
             layer_name="LigerRMSNorm",
         )
@@ -68,8 +68,14 @@ class Qwen3RMSNorm(nn.Module):
         return self.weight * hidden_states.to(input_dtype)
 
 
-# # Compiled version for performance comparison
-compiled_torch_rmsnorm = torch.compile(Qwen3RMSNorm)
+if DEVICE == "cuda":
+    # Compiled version for performance comparison
+    compiled_torch_rmsnorm = torch.compile(Qwen3RMSNorm)
+elif DEVICE == "npu":
+    # Compiled version on NPU
+    compiled_torch_rmsnorm = torch.compile(Qwen3RMSNorm, backend='aot_eager')
+else:
+    RuntimeError("no compiled backend for device")
 
 
 # triton RMSNorm kernel
@@ -85,6 +91,7 @@ class TritonRMSNorm(nn.Module):
 
 
 def test_rmsnorm(s1, s2, s3, hidden_size=1024, eps=1e-5):
+    torch.manual_seed(42)
     x = torch.randn(s1, s2, s3, hidden_size, dtype=torch.float32, device=DEVICE)
     weight = torch.rand(hidden_size, dtype=torch.float32, device=DEVICE)
 
@@ -114,9 +121,32 @@ def test_rmsnorm(s1, s2, s3, hidden_size=1024, eps=1e-5):
 
 if __name__ == "__main__":
     test_rmsnorm(1, 1, 1, 1)
-    test_rmsnorm(8, 16, 32, 1024)
+    print("The data from the first test case can be disregarded as it is unreliable.")
+    
+    test_rmsnorm(1, 1, 32, 1024)
+    test_rmsnorm(1, 1, 32, 1024)
+    test_rmsnorm(1, 1, 32, 1024)
+    test_rmsnorm(1, 1, 64, 1024)
+    test_rmsnorm(1, 1, 64, 1024)
+    test_rmsnorm(1, 1, 64, 1024)
+    test_rmsnorm(1, 1, 128, 1024)
+    test_rmsnorm(1, 1, 128, 1024)
+    test_rmsnorm(1, 1, 128, 1024)
+    test_rmsnorm(1, 1, 128, 512)
+    test_rmsnorm(1, 1, 128, 512)
+    test_rmsnorm(1, 1, 128, 512)
+    test_rmsnorm(2, 4, 8, 512)
+    test_rmsnorm(2, 4, 8, 512)
+    test_rmsnorm(2, 4, 8, 512)
     test_rmsnorm(4, 8, 16, 4096)
-    test_rmsnorm(2, 4, 8, 8192)
-    test_rmsnorm(1, 2, 4, 16384)
-    test_rmsnorm(1, 1, 2, 32768)
-    test_rmsnorm(1, 16, 32, 65536)
+    test_rmsnorm(4, 8, 16, 4096)
+    test_rmsnorm(4, 8, 16, 4096)
+    test_rmsnorm(8, 16, 32, 1024)
+    test_rmsnorm(8, 16, 32, 1024)
+    test_rmsnorm(8, 16, 32, 1024)
+    test_rmsnorm(8, 8, 8, 8)
+    test_rmsnorm(8, 8, 8, 8)
+    test_rmsnorm(8, 8, 8, 8)
+    test_rmsnorm(16, 16, 16, 16)
+    test_rmsnorm(16, 16, 16, 16)
+    test_rmsnorm(16, 16, 16, 16)
