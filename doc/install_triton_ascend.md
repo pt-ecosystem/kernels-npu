@@ -4,7 +4,7 @@
 https://www.autodl.com/
 
 ## 主要参考的文档
-https://gitee.com/ascend/triton-ascend/blob/master/docs/sources/getting-started/installation.md
+https://gitcode.com/Ascend/triton-ascend/blob/master/docs/sources/getting-started/installation.md
 
 ## 补充操作
 1. CANN严格使用文档指定版本，即CANN>=8.2.RC1.alpha003版本，否则会出现“找不到npuc目录”的报错。
