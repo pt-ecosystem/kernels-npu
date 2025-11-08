@@ -27,50 +27,29 @@ transformers 在 v4.54.0 的 release 中首次介绍了 kernels 的集成，并�
 
 
 ## 几行代码直观感受kernels的使用
-```diff
+```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-+ import logging
-+ from typing import Union
-
-+ from kernels import (
-+     Device,
-+     LayerRepository,
-+     Mode,
-+     register_kernel_mapping,
-+ )
+import logging
+import time
 
 
-+ # 将日志级别设置为DEBUG，会在日志中看到哪些kernels被使用
-+ logging.basicConfig(level=logging.DEBUG)
+# Set the level to `DEBUG` to see which kernels are being called.
+# logging.basicConfig(level=logging.DEBUG)
 
 model_name = "Qwen/Qwen3-0.6B"
-
-+ _KERNEL_MAPPING: dict[str, dict[Union[Device, str], LayerRepository]] = {
-+     "RMSNorm": {
-+         "npu": {
-+             Mode.INFERENCE: LayerRepository(
-+                 repo_id="kernels-ext-npu/RMSNorm",
-+                 layer_name="RMSNorm",
-+             )
-+         }
-+     }
-+ }
-
-+ register_kernel_mapping(_KERNEL_MAPPING)
 
 # load the tokenizer and the model
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype="auto",
-+   use_kernels=True,
     device_map="auto",
-+   attn_implementation = "kernels-ext-npu/flash-attn2",
+    # use_kernels=True,
+    # attn_implementation = "kernels-ext-npu/flash-attn2",
 )
 
 # prepare the model input
-prompt = "Give me a short introduction to large language model."
+prompt = "Output the first 20 digits of pi."
 messages = [
     {"role": "user", "content": prompt}
 ]
@@ -78,28 +57,21 @@ text = tokenizer.apply_chat_template(
     messages,
     tokenize=False,
     add_generation_prompt=True,
-    enable_thinking=True # Switches between thinking and non-thinking modes. Default is True.
+    enable_thinking=False,
 )
 model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
 
-# conduct text completion
+# Print Runtime
+start_time = time.time()
 generated_ids = model.generate(
     **model_inputs,
     max_new_tokens=32768
 )
-output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
+print("runtime: ", time.time()-start_time)
 
-# parsing thinking content
-try:
-    # rindex finding 151668 (</think>)
-    index = len(output_ids) - output_ids[::-1].index(151668)
-except ValueError:
-    index = 0
+output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist()
+content = tokenizer.decode(output_ids, skip_special_tokens=True).strip("\n")
 
-thinking_content = tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
-content = tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
-
-print("thinking content:", thinking_content)
 print("content:", content)
 ```
 
