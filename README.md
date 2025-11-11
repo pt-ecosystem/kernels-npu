@@ -15,12 +15,12 @@ Kernel sources for https://huggingface.co/kernels-ext-npu
 
 ## 当前支持
 
-| kernel          | build from                                                                                                          | category      |
-|-----------------|---------------------------------------------------------------------------------------------------------------------|---------------|
-| flash-attn2-npu | [source code](flash-attn2-npu/README.md)                                                                            | torch_npu     |
-| RMSNorm         | [source code](https://huggingface.co/kernels-community/liger_kernels/tree/main/build/torch-universal/liger_kernels) | triton-ascend |
+| kernel          | build from                               | category      |
+|-----------------|------------------------------------------|---------------|
+| flash-attn2-npu | [source code](flash-attn2-npu/README.md) | torch_npu     |
+| RMSNorm         | [source code](RMSNorm/README.md)         | triton-ascend |
 
 
 ## 其他说明
-1. 目前，NPU 的主要优化手段仍是 torch_npu。 triton-ascend 的优化 kernel 仅供参考。
+1. 目前，NPU 的主要优化手段仍是 torch_npu， triton-ascend 的优化 kernel 仅供参考。
 2. triton-ascend 的安装可参考[文档](doc/Install_triton_ascend.md)。
