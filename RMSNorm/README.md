@@ -6,6 +6,6 @@ tags:
 
 # RMSNorm
 
-Option 1: https://huggingface.co/kernels-community/liger_kernels/tree/main/build/torch-universal/liger_kernels
+Option 1: This project
 
-Option 2: developing
+Option 2: https://huggingface.co/kernels-community/liger_kernels/tree/main/build/torch-universal/liger_kernels
