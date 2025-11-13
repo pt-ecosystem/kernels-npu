@@ -73,7 +73,7 @@ if DEVICE == "cuda":
     compiled_torch_rmsnorm = torch.compile(Qwen3RMSNorm)
 elif DEVICE == "npu":
     # Compiled version on NPU
-    compiled_torch_rmsnorm = torch.compile(Qwen3RMSNorm, backend='aot_eager')
+    compiled_torch_rmsnorm = torch.compile(Qwen3RMSNorm, backend="aot_eager")
 else:
     RuntimeError("no compiled backend for device")
 
@@ -87,7 +87,9 @@ class TritonRMSNorm(nn.Module):
         self.variance_epsilon = eps
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        return NotImplementedError("This method will be replaced by the kernel from hub.")
+        return NotImplementedError(
+            "This method will be replaced by the kernel from hub."
+        )
 
 
 def test_rmsnorm(s1, s2, s3, hidden_size=1024, eps=1e-5):
@@ -99,30 +101,30 @@ def test_rmsnorm(s1, s2, s3, hidden_size=1024, eps=1e-5):
     torch_rmsnorm = Qwen3RMSNorm(hidden_size, eps).to(DEVICE)
     start_time = time.time()
     torch_res = torch_rmsnorm(x)
-    print(f"torch_rmsnorm time: {time.time() - start_time}")
+    print(f"torch_rmsnorm time: {time.time() - start_time:.4f} seconds")
 
     # Compiled version
     compiled_rmsnorm = compiled_torch_rmsnorm(hidden_size, eps).to(DEVICE)
     start_time = time.time()
     compiled_res = compiled_rmsnorm(x)
-    print(f"compiled_rmsnorm time: {time.time() - start_time}")
-    
+    print(f"compiled_rmsnorm time: {time.time() - start_time:.4f} seconds")
+
     # Triton RMSNorm kernel
     triton_rmsnorm = TritonRMSNorm(hidden_size, eps).to(DEVICE)
     kernelize(triton_rmsnorm, device=DEVICE, mode=Mode.INFERENCE)
     start_time = time.time()
     triton_res = triton_rmsnorm(x)
-    print(f"triton_rmsnorm time: {time.time() - start_time}")
+    print(f"triton_rmsnorm time: {time.time() - start_time:.4f} seconds")
 
-    assert torch.allclose(compiled_res, torch_res, atol=1e-2, rtol=0.0)
-    assert torch.allclose(triton_res, torch_res, atol=1e-2, rtol=0.0)
-    print(f"-----------------------shape [{s1}, {s2}, {s3}, {hidden_size}] RMSNorm test passed!-----------------------")
+    assert torch.allclose(compiled_res, torch_res, atol=1e-5, rtol=0.0)
+    assert torch.allclose(triton_res, torch_res, atol=1e-5, rtol=0.0)
+    print(f"shape [{s1}, {s2}, {s3}, {hidden_size}] RMSNorm test passed!\n")
 
 
 if __name__ == "__main__":
     test_rmsnorm(1, 1, 1, 1)
-    print("The data from the first test case can be disregarded as it is unreliable.")
-    
+    print("----------------warmup end----------------")
+
     test_rmsnorm(1, 1, 1024)
     test_rmsnorm(1, 1, 1024)
     test_rmsnorm(1, 1, 8, 128)
