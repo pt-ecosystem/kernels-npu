@@ -12,19 +12,8 @@
 
 
 import torch
-from ._ops import ops
-from .RMSNorm import _RMSNorm
+import torch_npu
+from . import layers
 
 
-def RMSNorm(x: torch.Tensor) -> torch.Tensor:
-    """
-    Apply RMSNorm to the input tensor.
-    Args:
-        x (torch.Tensor): The input tensor.
-    Returns:
-        torch.Tensor: The output tensor after applying RMSNorm.
-    """
-    return ops.RMSNorm(x)
-
-
-__all__ = ["RMSNorm"]
+__all__ = ["layers"]

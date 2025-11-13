@@ -36,8 +36,8 @@ DEVICE = "npu"
 _KERNEL_MAPPING: dict[str, dict[Union[Device, str], LayerRepository]] = {
     "RMSNorm": {
         DEVICE: LayerRepository(
-            repo_id="kernels-ext-npu/RMSNorm",
-            layer_name="RMSNorm",
+            repo_id="kernels-ext-npu/rmsnorm",
+            layer_name="rmsnorm",
         )
     }
 }
@@ -69,7 +69,9 @@ class TorchNPURMSNorm(nn.Module):
         self.variance_epsilon = eps
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        return NotImplementedError("This method will be replaced by the kernel from hub.")
+        return NotImplementedError(
+            "This method will be replaced by the kernel from hub."
+        )
 
 
 def test_rmsnorm(s1, s2, s3, hidden_size=1024, eps=1e-5):
@@ -81,23 +83,23 @@ def test_rmsnorm(s1, s2, s3, hidden_size=1024, eps=1e-5):
     torch_rmsnorm = Qwen3RMSNorm(hidden_size, eps).to(DEVICE)
     start_time = time.time()
     torch_res = torch_rmsnorm(x)
-    print(f"torch_rmsnorm time: {time.time() - start_time}")
+    print(f"torch_rmsnorm time: {time.time() - start_time:.4f} seconds")
 
     # torch_npu RMSNorm kernel
     torch_npu_rmsnorm = TorchNPURMSNorm(hidden_size, eps).to(DEVICE)
     kernelize(torch_npu_rmsnorm, device=DEVICE, mode=Mode.INFERENCE)
     start_time = time.time()
     torch_npu_res = torch_npu_rmsnorm(x)
-    print(f"torch_npu_rmsnorm time: {time.time() - start_time}")
+    print(f"torch_npu_rmsnorm time: {time.time() - start_time:.4f} seconds")
 
     assert torch.allclose(torch_npu_res, torch_res, atol=1e-2, rtol=0.0)
-    print(f"-----------------------shape [{s1}, {s2}, {s3}, {hidden_size}] RMSNorm test passed!-----------------------")
+    print(f"shape [{s1}, {s2}, {s3}, {hidden_size}] RMSNorm test passed!\n")
 
 
 if __name__ == "__main__":
     test_rmsnorm(1, 1, 1, 1)
-    print("The data from the first test case can be disregarded as it is unreliable.")
-    
+    print("----------------warmup end----------------")
+
     test_rmsnorm(1, 1, 1024)
     test_rmsnorm(1, 1, 1024)
     test_rmsnorm(1, 1, 8, 128)

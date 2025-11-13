@@ -13,16 +13,15 @@
 
 import torch
 import torch_npu
-from ._ops import add_op_namespace_prefix
 
 
-@torch.library.custom_op(add_op_namespace_prefix("RMSNorm"), mutates_args=())
-def _RMSNorm(self, x: torch.Tensor) -> torch.Tensor:
-    """
-    Forward pass through the RMSNorm layer.
-    Args:
-        x (torch.Tensor): The input tensor.
-    Returns:
-        torch.Tensor: The output tensor after applying RMSNorm.
-    """
-    return torch_npu.npu_rms_norm(x, self.weight, epsilon=self.variance_epsilon)[0]
+class rmsnorm(torch.nn.Module):
+    def forward(self, x):
+        """
+        Forward pass through the RMSNorm layer.
+        Args:
+            x (torch.Tensor): The input tensor.
+        Returns:
+            torch.Tensor: The output tensor after applying RMSNorm.
+        """
+        return torch_npu.npu_rms_norm(x, self.weight, epsilon=self.variance_epsilon)[0]
