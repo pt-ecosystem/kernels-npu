@@ -18,7 +18,7 @@ Kernel sources for https://huggingface.co/kernels-ext-npu
 | kernel          | build from                               | category      |
 |-----------------|------------------------------------------|---------------|
 | flash-attn2-npu | [source code](flash-attn2-npu/README.md) | torch_npu     |
-| RMSNorm         | [source code](RMSNorm/README.md)         | triton-ascend |
+| rmsnorm         | [source code](rmsnorm/README.md)         | triton-ascend |
 
 
 ## 其他说明
