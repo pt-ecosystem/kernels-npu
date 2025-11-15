@@ -15,10 +15,11 @@ Kernel sources for https://huggingface.co/kernels-ext-npu
 
 ## 当前支持
 
-| kernel          | build from                               | category      |
-|-----------------|------------------------------------------|---------------|
-| flash-attn2-npu | [source code](flash-attn2-npu/README.md) | torch_npu     |
-| rmsnorm         | [source code](rmsnorm/README.md)         | triton-ascend |
+| kernel          | build from                                                            | category      |
+|-----------------|-----------------------------------------------------------------------|---------------|
+| flash-attn2-npu | [source code](flash-attn2-npu/README.md)                              | torch_npu     |
+| rmsnorm         | [source code](rmsnorm/README.md)                                      | torch_npu     |
+| rmsnorm         | [source code](https://huggingface.co/kernels-community/liger_kernels) | triton-ascend |
 
 
 ## 其他说明
